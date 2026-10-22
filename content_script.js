@@ -603,16 +603,33 @@ if (!window.wtbScraperLoaded) {
   // par groupe, cf. detectMarketplacePost), donc les deux vocabulaires sont fusionnés dans les
   // mêmes listes plutôt que de choisir entre deux jeux de libellés : seul celui réellement
   // présent dans le menu ouvert matchera de toute façon.
-  const SORT_LABEL_NEWEST = ["Nouvelles publications", "New posts", "Nouvelles annonces", "New listings"];
+  // Facebook en anglais : le bouton affiche "Most relevant" / "New posts" et le menu propose
+  // "Most relevant", "Recent activity", "New posts" (casse variable selon les versions de
+  // l'interface, ex: "New Posts") — d'où la comparaison insensible à la casse via
+  // normalizeLabel ci-dessous, plutôt que de lister chaque variante de majuscules.
+  const SORT_LABEL_NEWEST = [
+    "Nouvelles publications", "New posts", "Newest posts", "Recent posts",
+    "Nouvelles annonces", "New listings", "Newest listings", "Recent listings"
+  ];
   const SORT_LABEL_ALL = [
-    "Les plus pertinentes", "Most relevant",
-    "Activité récente", "New activity",
-    "Nouvelles publications", "New posts",
+    "Les plus pertinentes", "Plus pertinentes", "Most relevant",
+    "Activité récente", "Recent activity", "New activity",
+    ...SORT_LABEL_NEWEST,
     "Annonces populaires", "Popular listings",
     "Activité de l’annonce récente", "Recent listing activity",
-    "Nouvelles annonces", "New listings",
     "Annonces à proximité", "Nearby listings"
   ];
+
+  // Minuscules + apostrophes typographiques unifiées + espaces (dont insécables) réduits :
+  // rend la comparaison indépendante de la casse et des petites variations de rendu entre
+  // un Facebook en français et un Facebook en anglais.
+  const normalizeLabel = (text) => (text || "")
+    .replace(/[’‘]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  const NEWEST_NORMALIZED = SORT_LABEL_NEWEST.map(normalizeLabel);
+  const ALL_NORMALIZED = SORT_LABEL_ALL.map(normalizeLabel);
 
   // Le bouton de tri contient un span d'accessibilité caché ("trier le fil du groupe par")
   // concaténé DEVANT le libellé visible dans son textContent (ex: "trier le fil du groupe
@@ -623,8 +640,8 @@ if (!window.wtbScraperLoaded) {
   const findSortButton = () => {
     const candidates = document.querySelectorAll('div[role="button"]');
     for (const el of candidates) {
-      const text = (el.textContent || "").trim();
-      if (SORT_LABEL_ALL.some(label => text.endsWith(label))) return el;
+      const text = normalizeLabel(el.textContent);
+      if (ALL_NORMALIZED.some(label => text.endsWith(label))) return el;
     }
     return null;
   };
@@ -658,8 +675,8 @@ if (!window.wtbScraperLoaded) {
     const button = findSortButton();
     if (!button) return { ok: false, reason: 'sort_button_not_found', forced: false };
 
-    const currentLabel = button.textContent.trim();
-    if (SORT_LABEL_NEWEST.some(label => currentLabel.endsWith(label))) {
+    const currentLabel = normalizeLabel(button.textContent);
+    if (NEWEST_NORMALIZED.some(label => currentLabel.endsWith(label))) {
       return { ok: true, forced: false };
     }
 
@@ -678,7 +695,7 @@ if (!window.wtbScraperLoaded) {
     // "Nouvelles publicationsAffichez les publications récentes en premier") — on vérifie
     // donc que le texte COMMENCE par le libellé connu (confirmé en conditions réelles).
     const menuOption = Array.from(document.querySelectorAll('div[role="menuitemradio"]'))
-      .find(el => SORT_LABEL_NEWEST.some(label => (el.textContent || "").trim().startsWith(label)));
+      .find(el => NEWEST_NORMALIZED.some(label => normalizeLabel(el.textContent).startsWith(label)));
 
     if (!menuOption) {
       document.body.click(); // referme le menu resté ouvert
