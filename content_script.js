@@ -952,6 +952,7 @@ if (!window.wtbScraperLoaded) {
           const chunks = chunkPosts(posts);
           let sentCount = 0;
           let failed = false;
+          let sendError = null;
 
           for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i];
@@ -963,6 +964,7 @@ if (!window.wtbScraperLoaded) {
             const res = await sendToSheet(wireChunk);
             if (!res || !res.success) {
               failed = true;
+              sendError = (res && res.error) || 'pas de réponse du service worker';
               break;
             }
             chunk.forEach(p => loadedKeys.add(p.dedupKey));
@@ -974,7 +976,7 @@ if (!window.wtbScraperLoaded) {
             overlay.style.background = '#e41e3f';
             overlay.innerText = sentCount > 0
               ? `⚠️ ${sentCount}/${posts.length} annonces envoyées, échec sur la suite (déjà envoyées = sauvegardées, le reste sera retenté au prochain scan).`
-              : `❌ Erreur d'envoi vers Google Sheet.`;
+              : `❌ Erreur d'envoi vers Google Sheet (${sendError}).`;
             reportDone(groupId, sentCount > 0 ? 'partial' : 'error', sentCount, scanDetails);
             sendResponse({ status: sentCount > 0 ? 'partial' : 'error', count: sentCount });
           } else {
