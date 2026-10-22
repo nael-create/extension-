@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "WTB Facebook Scanner",
+  "version": "1.0",
+  "description": "Scrape les posts WTB sur Facebook et les envoie vers Google Sheet",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.facebook.com/*",
+    "https://facebook.com/*",
+    "https://script.google.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.facebook.com/*",
+        "https://facebook.com/*"
+      ],
+      "js": ["content_script.js"]
+    }
+  ]
+}

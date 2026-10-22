@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Collektr — Scraper Dashboard</title>
+  <style>
+    :root {
+      /* Valeurs extraites au pixel près du vrai logo Collektr (assets/collektr-icon.png,
+         assets/collektr-logo.png), pas une estimation visuelle — cf. session du 2026-09-09. */
+      --brand-1: #5946E5;
+      --brand-2: #D247EE;
+      --brand-gradient: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+
+      /* Thème clair : fond blanc, cartes "verre dépoli" légèrement teintées plutôt que des
+         blocs blancs plats — cf. retour du 2026-09-09. */
+      --bg-0: #ffffff;
+      --bg-1: #f3f0fc;
+
+      --glass-bg: rgba(255, 255, 255, 0.65);
+      --glass-bg-strong: rgba(255, 255, 255, 0.85);
+      --glass-border: rgba(30, 20, 60, 0.08);
+      --glass-border-hover: rgba(89, 70, 229, 0.28);
+
+      --text-primary: #201a3a;
+      --text-secondary: #5b5570;
+      --text-muted: #948fa8;
+
+      --success: #1fae7a;
+      --idle: #9a94ab;
+      --warning: #d98a10;
+      --danger: #e0284f;
+
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 9px;
+    }
+
+    * { box-sizing: border-box; }
+    /* Évite qu'un rebond de défilement élastique (au-delà du bas de page) révèle le fond
+       sombre par défaut de la page plutôt que le thème clair du dashboard. */
+    html { background: var(--bg-1); }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(ellipse at top, var(--bg-1) 0%, var(--bg-0) 55%);
+      color: var(--text-primary);
+      overflow-x: hidden;
+    }
+
+    .bg-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(130px);
+      opacity: 0.16;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .bg-glow-1 { width: 560px; height: 560px; background: var(--brand-1); top: -180px; left: -140px; }
+    .bg-glow-2 { width: 600px; height: 600px; background: var(--brand-2); bottom: -220px; right: -160px; }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 40px 24px 70px;
+    }
+
+    /* ---------- En-tête / logo ---------- */
+    /* Un seul logo : le wordmark "COLLEKTR" contient déjà le symbole hexagonal (le "O" du
+       milieu) — afficher EN PLUS une icône hexagonale séparée à côté dupliquait le symbole
+       et rendait l'en-tête erroné (cf. retour du 2026-09-09). */
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 34px;
+    }
+    .brand-text { display: flex; flex-direction: column; justify-content: center; }
+    .brand-wordmark-wrap { position: relative; height: 30px; display: flex; align-items: center; }
+    .brand-wordmark-wrap img { height: 26px; display: block; }
+    .brand-wordmark-fallback {
+      font-size: 23px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      background: var(--brand-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .brand-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+    /* ---------- Cartes en verre ---------- */
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+      margin-bottom: 22px;
+      backdrop-filter: blur(26px) saturate(160%);
+      -webkit-backdrop-filter: blur(26px) saturate(160%);
+      box-shadow: 0 8px 28px rgba(89, 70, 229, 0.10);
+      transition: box-shadow 0.35s ease, border-color 0.35s ease, transform 0.35s ease;
+    }
+    .glass-card:hover {
+      border-color: var(--glass-border-hover);
+      box-shadow: 0 14px 40px rgba(89, 70, 229, 0.18);
+      transform: translateY(-2px);
+    }
+    .glass-card h2 {
+      margin: 0 0 16px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-secondary);
+    }
+
+    /* ---------- Formulaires / inputs ---------- */
+    .input-glass {
+      background: rgba(32, 20, 70, 0.035);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    .input-glass::placeholder { color: var(--text-muted); }
+    .input-glass:focus {
+      outline: none;
+      border-color: var(--brand-1);
+      box-shadow: 0 0 0 3px rgba(89, 70, 229, 0.18);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    #addForm { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    #addForm input { flex: 1 1 180px; min-width: 0; }
+
+    .search-wrap { position: relative; margin-bottom: 14px; }
+    .search-wrap svg {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      stroke: var(--text-muted);
+      pointer-events: none;
+    }
+    .search-wrap input { width: 100%; padding-left: 34px; }
+
+    /* ---------- Boutons ---------- */
+    .btn {
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 10px 20px;
+      font-weight: 700;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    }
+    .btn-primary { background: var(--brand-gradient); color: white; box-shadow: 0 4px 18px rgba(89, 70, 229, 0.35); }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(89, 70, 229, 0.48); }
+    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; transform: none; }
+
+    .btn-danger-ghost {
+      background: rgba(224, 40, 79, 0.08);
+      color: var(--danger);
+      border: 1px solid rgba(224, 40, 79, 0.3);
+    }
+    .btn-danger-ghost:hover:not(:disabled) { background: rgba(224, 40, 79, 0.14); }
+    .btn-danger-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-ghost-sm {
+      background: rgba(32, 20, 70, 0.05);
+      color: var(--text-primary);
+      border: 1px solid var(--glass-border);
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    .btn-ghost-sm:hover { background: rgba(32, 20, 70, 0.09); }
+
+    /* ---------- Liste de groupes ---------- */
+    #groupList { max-height: 320px; overflow-y: auto; }
+    .empty { color: var(--text-muted); font-size: 13px; padding: 14px 2px; }
+
+    /* ---------- Reset ---------- */
+    .reset-caption { color: var(--text-muted); font-size: 12.5px; line-height: 1.5; margin: 0 0 14px; max-width: 46em; }
+
+    .group-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(32, 20, 70, 0.03);
+      border: 1px solid rgba(32, 20, 70, 0.07);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      position: relative;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+    .group-card:last-child { margin-bottom: 0; }
+    .group-card:hover { background: rgba(32, 20, 70, 0.06); border-color: rgba(89, 70, 229, 0.22); }
+    .group-card.is-busy { opacity: 0.6; }
+
+    .group-card input[type="checkbox"] {
+      width: 16px; height: 16px; accent-color: var(--brand-2); flex-shrink: 0; cursor: pointer;
+    }
+    .group-card input[type="checkbox"]:disabled { cursor: not-allowed; }
+
+    .group-info { flex: 1; min-width: 0; }
+    .group-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .group-url { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .group-category-badge {
+      flex-shrink: 0; font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+      color: var(--brand-1); background: rgba(89, 70, 229, 0.1); white-space: nowrap;
+    }
+    .group-category-badge[data-category="guitars"] { color: var(--brand-2); background: rgba(210, 71, 238, 0.1); }
+
+    .group-edit { display: flex; gap: 8px; flex: 1; align-items: center; }
+    .group-edit input { flex: 1; padding: 7px 10px; font-size: 12.5px; }
+    .group-edit .edit-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .kebab-wrap { position: relative; flex-shrink: 0; }
+    .kebab-btn {
+      background: none; border: none; color: var(--text-secondary); font-size: 18px;
+      cursor: pointer; padding: 2px 8px; border-radius: 6px; line-height: 1;
+    }
+    .kebab-btn:hover { background: rgba(32, 20, 70, 0.07); color: var(--text-primary); }
+
+    .dropdown {
+      position: fixed; z-index: 50; min-width: 140px;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 12px 32px rgba(60, 40, 120, 0.18);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+    }
+    .dropdown[hidden] { display: none; }
+    .dropdown button {
+      display: block; width: 100%; text-align: left; padding: 9px 14px;
+      background: none; border: none; color: var(--text-primary); font-size: 12.5px;
+      font-family: inherit; cursor: pointer;
+    }
+    .dropdown button:hover { background: rgba(32, 20, 70, 0.06); }
+    .dropdown button.danger { color: var(--danger); }
+
+    /* ---------- File de scraping ---------- */
+    .scan-mode-group {
+      display: flex; gap: 8px; margin-bottom: 14px;
+      background: rgba(32, 20, 70, 0.04); border-radius: var(--radius-md); padding: 4px;
+    }
+    .scan-mode-option {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 8px 10px; border-radius: var(--radius-sm);
+      font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+      cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+    }
+    .scan-mode-option:has(input:checked) { background: var(--glass-bg-strong); color: var(--brand-1); box-shadow: 0 1px 4px rgba(30, 20, 60, 0.12); }
+    .scan-mode-option input { accent-color: var(--brand-1); margin: 0; }
+    .scan-mode-option input:disabled ~ span,
+    .scan-mode-option:has(input:disabled) { opacity: 0.5; cursor: not-allowed; }
+
+    .queue-controls { display: flex; gap: 10px; margin-bottom: 18px; }
+
+    .status-pill { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--idle); }
+    @keyframes pulseDot {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(31, 174, 122, 0.45); }
+      50% { box-shadow: 0 0 0 6px rgba(31, 174, 122, 0); }
+    }
+    .status-pill[data-status="running"] .status-dot { background: var(--success); animation: pulseDot 1.6s infinite; }
+    .status-pill[data-status="idle"] .status-dot { background: var(--idle); }
+    .status-pill[data-status="stopped"] .status-dot { background: var(--warning); }
+    .status-pill[data-status="done"] .status-dot { background: var(--success); box-shadow: 0 0 8px rgba(31, 174, 122, 0.5); }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; margin-bottom: 6px; }
+    .stat-grid.full { grid-template-columns: 1fr; }
+    .stat-box strong {
+      display: block; font-size: 11px; color: var(--text-muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px;
+    }
+    .stat-value {
+      font-size: 14px; color: var(--text-primary); transition: opacity 0.25s ease;
+    }
+    .stat-value.flash { opacity: 0.25; }
+
+    .progress-track {
+      width: 100%; height: 7px; border-radius: 99px;
+      background: rgba(32, 20, 70, 0.09); overflow: hidden; margin-top: 8px;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 99px; width: 0%;
+      background: linear-gradient(90deg, var(--brand-1), var(--brand-2), var(--brand-1));
+      background-size: 200% 100%;
+      transition: width 0.5s ease;
+      animation: flow 3s linear infinite;
+    }
+    .progress-track.static .progress-fill { animation: none; }
+    @keyframes flow { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
+
+    .section-gap { margin-top: 20px; }
+
+    /* ---------- Historique ---------- */
+    .history-row {
+      display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+      padding: 9px 12px; border-radius: 8px; margin-bottom: 6px;
+      background: rgba(32, 20, 70, 0.035);
+      border-left: 3px solid var(--idle);
+      font-size: 12.5px;
+      transition: background 0.2s ease;
+    }
+    .history-row-main { display: flex; justify-content: space-between; align-items: center; }
+    .history-row:hover { background: rgba(32, 20, 70, 0.06); }
+    .history-row[data-status="success"] { border-left-color: var(--success); }
+    .history-row[data-status="error"] { border-left-color: var(--danger); }
+    .history-row[data-status="partial"] { border-left-color: var(--warning); }
+    .history-row .history-name { font-weight: 600; }
+    .history-row .history-meta { color: var(--text-muted); }
+    .history-row .history-diag { color: var(--text-muted); font-size: 11px; opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="page">
+    <header class="brand-header">
+      <div class="brand-text">
+        <!-- assets/collektr-logo.png = wordmark officiel (fond blanc rendu transparent) —
+             il contient déjà le symbole hexagonal (le "O" du milieu), donc pas d'icône
+             séparée à côté : ça duplique le symbole (cf. retour du 2026-09-09). -->
+        <div class="brand-wordmark-wrap">
+          <img src="assets/collektr-logo.png" alt="Collektr" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline'">
+          <span class="brand-wordmark-fallback" style="display:none;">COLLEKTR</span>
+        </div>
+        <span class="brand-subtitle">Scraper Dashboard</span>
+      </div>
+    </header>
+
+    <section class="glass-card">
+      <h2>Facebook Groups</h2>
+      <form id="addForm">
+        <input type="text" id="groupNameInput" class="input-glass" placeholder="Group name" required>
+        <input type="text" id="groupUrlInput" class="input-glass" placeholder="https://www.facebook.com/groups/..." required>
+        <select id="groupCategoryInput" class="input-glass" style="flex:0 0 auto;">
+          <option value="pokemon" selected>Pokémon</option>
+          <option value="guitars">Guitares</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="searchInput" class="input-glass" placeholder="Search a group (name or URL)...">
+      </div>
+      <div id="groupList"></div>
+    </section>
+
+    <!-- Shared ⋮ menu, positioned `fixed` and moved on click (see dashboard.js):
+         #groupList scrolls (overflow-y:auto), which also forces horizontal clipping — a
+         menu positioned inside it would get cut off. A single shared menu reused for every
+         group avoids this problem (cf. session of 2026-09-09). -->
+    <div id="sharedDropdown" class="dropdown" hidden>
+      <button data-action="edit">Edit</button>
+      <button class="danger" data-action="delete">Delete</button>
+    </div>
+
+    <section class="glass-card">
+      <h2>Scraping Queue</h2>
+
+      <div class="scan-mode-group" role="radiogroup" aria-label="What to scan">
+        <label class="scan-mode-option">
+          <input type="radio" name="scanMode" value="both" checked>
+          <span>WTB &amp; WTS</span>
+        </label>
+        <label class="scan-mode-option">
+          <input type="radio" name="scanMode" value="wtb">
+          <span>WTB only</span>
+        </label>
+        <label class="scan-mode-option">
+          <input type="radio" name="scanMode" value="wts">
+          <span>WTS only</span>
+        </label>
+      </div>
+
+      <div class="scan-mode-group" role="radiogroup" aria-label="Scroll limit per group">
+        <label class="scan-mode-option">
+          <input type="radio" name="scrollLimit" value="40">
+          <span>40 scrolls</span>
+        </label>
+        <label class="scan-mode-option">
+          <input type="radio" name="scrollLimit" value="70">
+          <span>70 scrolls</span>
+        </label>
+        <label class="scan-mode-option">
+          <input type="radio" name="scrollLimit" value="100" checked>
+          <span>100 scrolls</span>
+        </label>
+      </div>
+
+      <div class="queue-controls">
+        <button id="startBtn" class="btn btn-primary">Start scraping</button>
+        <button id="stopBtn" class="btn btn-danger-ghost" disabled>Stop (after current group)</button>
+      </div>
+
+      <div class="stat-grid full">
+        <div class="stat-box">
+          <strong>Status</strong>
+          <span class="status-pill" id="statusPill" data-status="idle">
+            <span class="status-dot"></span>
+            <span id="queueStatus">Idle</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="stat-grid full">
+        <div class="stat-box">
+          <strong>Overall queue progress</strong>
+          <div class="progress-track static"><div class="progress-fill" id="overallProgressFill"></div></div>
+        </div>
+      </div>
+
+      <div class="stat-grid section-gap">
+        <div class="stat-box">
+          <strong>Current group</strong>
+          <span class="stat-value" id="currentGroup">—</span>
+        </div>
+        <div class="stat-box">
+          <strong>Posts found</strong>
+          <span class="stat-value" id="currentPostsFound">—</span>
+        </div>
+      </div>
+
+      <div class="stat-grid full">
+        <div class="stat-box">
+          <strong>Scroll progress (current group)</strong>
+          <div class="progress-track" id="currentProgressTrack"><div class="progress-fill" id="currentProgressFill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="stat-grid full section-gap">
+        <div class="stat-box"><strong>Details</strong><span class="stat-value" id="currentStatusText">—</span></div>
+      </div>
+      <div class="stat-grid full">
+        <div class="stat-box"><strong>Groups remaining in queue</strong><span class="stat-value" id="remainingList">—</span></div>
+      </div>
+    </section>
+
+    <section class="glass-card">
+      <h2>Session History</h2>
+      <div id="historyList"><div class="empty">Nothing yet.</div></div>
+    </section>
+
+    <section class="glass-card">
+      <h2>Reset</h2>
+      <p class="reset-caption">
+        Clears the extension's "already sent" memory (persisted dedup keys) so every WTB/WTS
+        post still visible in a group counts as new on the next scan. Does not touch the
+        Google Sheet — clear WTB Ledger / WTS Ledger / Correspondances there separately if you
+        want a fully clean slate.
+      </p>
+      <button id="clearDedupBtn" class="btn btn-danger-ghost">Clear scan history</button>
+    </section>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
