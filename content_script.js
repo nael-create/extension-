@@ -893,7 +893,7 @@ if (!window.wtbScraperLoaded) {
               `sans le savoir — vérifie et corrige le tri manuellement avant de relancer.`
             );
             overlay.style.background = '#e41e3f';
-            overlay.innerText = "❌ Impossible de forcer le tri 'Nouvelles publications' (sélecteur introuvable). Voir la console.";
+            overlay.innerText = `❌ Impossible de forcer le tri 'Nouvelles publications' (${sortResult.reason}). Voir la console.`;
             setTimeout(() => overlay.remove(), 8000);
             reportDone(groupId, 'error', 0, { sortForced: false, stopReason: 'sort_selector_broken' });
             sendResponse({ status: 'error', count: 0, reason: 'sort_selector_broken' });
